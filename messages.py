@@ -9,17 +9,14 @@ from typing import List, Dict, Any, Optional
 from agent_config import AgentConfig
 
 
-# ================================================================
 #  MemoryStore：管理记忆文件的读写
-# ================================================================
 
 class MemoryStore:
     """三层记忆文件管理。
-
     memory/
-    ├── MEMORY.md       长期记忆（LLM 完整覆盖）
-    ├── YYYY-MM-DD.md   每日情景记忆（追加式）
-    └── history.jsonl   对话日志（追加式，不注入上下文）
+    ├── MEMORY.md       长期记忆
+    ├── YYYY-MM-DD.md   每日情景记忆
+    └── history.jsonl   对话日志 纯记录
     """
 
     def __init__(self, memory_dir: Path):
@@ -27,7 +24,7 @@ class MemoryStore:
         self.memory_file = memory_dir / "MEMORY.md"
         self.history_file = memory_dir / "history.jsonl"
 
-    # ---- 初始化 ----
+    # 初始化 
 
     def ensure_files(self):
         """首次运行时创建空的记忆文件。"""
@@ -37,7 +34,7 @@ class MemoryStore:
         if not self.history_file.exists():
             self.history_file.touch()
 
-    # ---- 长期记忆 ----
+    # 长期记忆
 
     def read_memory(self) -> str:
         """读取 MEMORY.md 全文。"""
@@ -49,7 +46,7 @@ class MemoryStore:
         self.ensure_files()
         self.memory_file.write_text(text.strip() + "\n", encoding="utf-8")
 
-    # ---- 每日情景记忆 ----
+    # 每日情景记忆 
 
     def _today_episode_file(self) -> Path:
         return self.memory_dir / f"{datetime.now():%Y-%m-%d}.md"
@@ -66,7 +63,7 @@ class MemoryStore:
         with self._today_episode_file().open("a", encoding="utf-8") as f:
             f.write("\n" + text.strip() + "\n")
 
-    # ---- 对话日志（仅备份） ----
+    # 对话日志
 
     def append_history(self, message: dict):
         """追加一条消息到对话日志。"""
@@ -79,13 +76,13 @@ class MemoryStore:
         with self.history_file.open("a", encoding="utf-8") as f:
             f.write(json.dumps(record, ensure_ascii=False) + "\n")
 
-    # ---- 会话索引 ----
+    # 会话索引
 
     def _session_index_file(self) -> Path:
         return self.memory_dir / "session_index.jsonl"
 
     def load_session_index(self) -> List[Dict]:
-        """读取会话索引，返回列表（最新在前）。"""
+        """读取会话索引，返回列表。"""
         path = self._session_index_file()
         if not path.exists():
             return []
@@ -129,15 +126,11 @@ class MemoryStore:
                 f.write(json.dumps(e, ensure_ascii=False) + "\n")
 
 
-# ================================================================
 #  ConversationManager：消息管理 + 压缩
-# ================================================================
 
 class ConversationManager:
     """对话管理类。
-
-    记忆不再混在 messages 数组里，而是由 agent.py 在构建 system prompt 时
-    从 MemoryStore 读文件注入。
+    记忆由 agent.py 在构建 system prompt 时从 MemoryStore 读文件注入。
     """
 
     # 从模板文件加载压缩 prompt
@@ -158,7 +151,7 @@ class ConversationManager:
         self.store = MemoryStore(Path(self.config.memory_dir))
         self.store.ensure_files()
 
-    # ========== 消息操作 ==========
+    # 消息操作
 
     def add_message(self, role: str, content: str) -> None:
         """添加消息到对话历史，同时写入日志。"""
@@ -192,7 +185,7 @@ class ConversationManager:
         self.interaction_count += 1
         return self.interaction_count
 
-    # ========== 压缩触发 ==========
+    #  压缩触发 
 
     def should_refresh_prompt(self) -> bool:
         """检查是否需要刷新系统提示。"""
@@ -203,7 +196,7 @@ class ConversationManager:
         non_system = [m for m in self.messages if m.get("role") != "system"]
         return len(non_system) > self.config.compact_after_messages
 
-    # ========== 压缩执行 ==========
+    #  压缩执行 调用大模型
 
     def refresh_context_with_prompt(self, user_question: str, system_prompt: str) -> None:
         """刷新上下文并添加新的系统提示。"""
@@ -213,8 +206,8 @@ class ConversationManager:
     def compact_context(self, system_prompt: str) -> None:
         """压缩上下文：先生成会话索引，再 LLM 压缩。"""
         if self._should_compact():
-            if self.config.auto_index_session:
-                self._index_current_session()  # 索引先行
+            if self.config.auto_index_session: #压缩前创建一次索引
+                self._index_current_session()  
             self._compact_via_llm()
 
         # 重建 messages：只保留 system prompt + 最近消息，不插入记忆
@@ -281,7 +274,7 @@ class ConversationManager:
             print(f"[压缩] old={len(old_messages)}条 → episode={len(episode)}字 + memory={len(updated_memory)}字")
 
     def _compact_via_truncation(self):
-        """截断式压缩（LLM 不可用时的 fallback）。"""
+        """截断式压缩。"""
         old_messages = [
             m for m in self.messages if m.get("role") != "system"
         ][:-self.config.max_recent_messages]
@@ -301,7 +294,7 @@ class ConversationManager:
         if self.config.show_system_messages:
             print(f"[压缩-截断] 长期记忆更新为 {len(truncated)} 字符")
 
-    # ========== 上下文重建 ==========
+    # 上下文重建 
 
     def rebuild_context(self, system_prompt: str, summary: str, user_question: str) -> None:
         """用 system prompt + 新问题重建上下文。记忆从文件读，不在此处注入。"""
@@ -309,7 +302,7 @@ class ConversationManager:
         self.messages = [{"role": "system", "content": system_prompt}]
         self.add_user_question(user_question)
 
-    # ========== 会话索引 ==========
+    #  会话索引 
 
     def _index_current_session(self):
         """用 LLM 生成本次会话摘要，写入 session_index.jsonl。"""
@@ -360,7 +353,7 @@ class ConversationManager:
         if self.config.show_system_messages:
             print(f"[索引] 会话 {session_id} 已索引: {entry['summary'][:60]}...")
 
-    # ========== 记忆召回 ==========
+    # 记忆召回 
 
     def recall_from_index(self, user_question: str) -> str:
         """从历史会话索引召回与当前问题相关的记忆。
@@ -371,11 +364,11 @@ class ConversationManager:
         if not entries:
             return ""
 
-        # 会话少：全量返回，不需要 LLM
+        # 少量会话 全量返回，不需要 LLM
         if len(entries) <= 3:
             return self._entries_to_memory_text(entries)
 
-        # 会话多：用 LLM 匹配
+        # 大量会话 用 LLM 匹配
         index_text = self._index_to_llm_text(entries)
 
         try:
@@ -415,7 +408,7 @@ class ConversationManager:
     def _index_to_llm_text(entries: List[Dict]) -> str:
         """把索引条目转成供 LLM 匹配的紧凑文本。"""
         lines = []
-        for e in entries:
+        for e in entries:#
             topics = ", ".join(e.get("topics", []))
             summary = e.get("summary", "")[:150]
             lines.append(f"[{e.get('session_id','?')}] {e.get('date','?')} | {summary} | 话题: {topics}")
@@ -437,7 +430,7 @@ class ConversationManager:
                 parts.append(f"    · 用户偏好: {pref}")
         return "\n".join(parts)
 
-    # ========== 调试 ==========
+    # debug用 看大模型压缩和索引输出结果 存在文件中
 
     def _write_debug_log(self, tag: str, text: str):
         """把 LLM 原始返回写入 debug 文件。"""
