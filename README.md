@@ -65,5 +65,25 @@ new_agent/
 - ≤3 条索引：全量返回
 - \>3 条：LLM 匹配 → 只返回相关的
 
-召回结果注入 system prompt 的「相关历史记忆」区域。
+召回结果注入 system prompt 的「相关历史记忆」区域。 
+
+## 运行效果
+
+### Agent 运行
+
+![运行效果](images/memory_run.png)
+
+### 长期记忆压缩
+
+![长期记忆](images/long-term-memory.png)
+
+### 每日情景记忆
+
+![每日情景](images/daily-memory.png)
+
+### 会话索引与召回
+
+![会话索引](images/sessions.png)
+
+
 
