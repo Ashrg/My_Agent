@@ -69,19 +69,19 @@ new_agent/
 
 ## 运行效果
 
-### Agent 运行
+### Agent 运行 可以看出第二次启动agent能记住之前行为
 
 ![运行效果](images/memory_run.png)
 
-### 长期记忆压缩
+### 长期记忆压缩 MEMORY.md文件内容
 
 ![长期记忆](images/long-term-memory.png)
 
-### 每日情景记忆
+### 每日情景记忆 YY-MM-DD.md文件内容
 
 ![每日情景](images/daily-memory.png)
 
-### 会话索引与召回
+### 会话索引与召回 session索引文件内容示例
 
 ![会话索引](images/sessions.png)
 
