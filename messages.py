@@ -404,31 +404,7 @@ class ConversationManager:
 
         return self._entries_to_memory_text(relevant)
 
-    @staticmethod
-    def _index_to_llm_text(entries: List[Dict]) -> str:
-        """把索引条目转成供 LLM 匹配的紧凑文本。"""
-        lines = []
-        for e in entries:#
-            topics = ", ".join(e.get("topics", []))
-            summary = e.get("summary", "")[:150]
-            lines.append(f"[{e.get('session_id','?')}] {e.get('date','?')} | {summary} | 话题: {topics}")
-        return "\n".join(lines)
-
-    @staticmethod
-    def _entries_to_memory_text(entries: List[Dict]) -> str:
-        """把索引条目转成可注入 system prompt 的记忆文本。"""
-        if not entries:
-            return ""
-        parts = []
-        for e in entries:
-            parts.append(
-                f"- [{e.get('date','')}] {e.get('summary','')}"
-            )
-            for outcome in e.get("key_outcomes", []):
-                parts.append(f"    · {outcome}")
-            for pref in e.get("user_preferences", []):
-                parts.append(f"    · 用户偏好: {pref}")
-        return "\n".join(parts)
+   
 
     # debug用 看大模型压缩和索引输出结果 存在文件中
 
@@ -444,7 +420,7 @@ class ConversationManager:
         with log_path.open("a", encoding="utf-8") as f:
             f.write(json.dumps(record, ensure_ascii=False) + "\n")
 
-    # ========== 记忆读取（供 agent.py 构建 system prompt） ==========
+    #  记忆读取
 
     def get_memory_for_prompt(self) -> str:
         """获取长期记忆内容，供 agent 注入 system prompt。"""
@@ -455,9 +431,7 @@ class ConversationManager:
         return self.store.read_today_episode()
 
 
-# ================================================================
-#  工具函数
-# ================================================================
+#  解析工具
 
 def _json_safe(value):
     """把 SDK 对象转为 JSON 可序列化的值。"""
@@ -485,7 +459,7 @@ def _messages_to_text(messages: List[Dict]) -> str:
 
 
 def _safe_parse_json(content: str) -> dict:
-    """安全解析 LLM 输出的 JSON（处理 markdown 包裹等）。"""
+    """安全解析 LLM 输出的 JSON"""
     content = content.strip()
     m = re.fullmatch(r"\s*```(?:json)?\s*(.*?)\s*```\s*", content, re.DOTALL)
     if m:
@@ -506,3 +480,28 @@ def _extract_xml_tag(text: str, tag: str) -> str:
     """从 LLM 输出中提取 <tag>...</tag> 的内容。"""
     match = re.search(rf"<{tag}>\s*(.*?)\s*</{tag}>", text, re.DOTALL)
     return match.group(1).strip() if match else ""
+
+# 索引转换
+def _index_to_llm_text(entries: List[Dict]) -> str:
+    """把索引条目转成供 LLM 匹配的紧凑文本。"""
+    lines = []
+    for e in entries:#
+        topics = ", ".join(e.get("topics", []))
+        summary = e.get("summary", "")[:150]
+        lines.append(f"[{e.get('session_id','?')}] {e.get('date','?')} | {summary} | 话题: {topics}")
+    return "\n".join(lines)
+
+def _entries_to_memory_text(entries: List[Dict]) -> str:
+    """把索引条目转成可注入 system prompt 的记忆文本。"""
+    if not entries:
+        return ""
+    parts = []
+    for e in entries:
+        parts.append(
+            f"- [{e.get('date','')}] {e.get('summary','')}"
+        )
+        for outcome in e.get("key_outcomes", []):
+            parts.append(f"    · {outcome}")
+        for pref in e.get("user_preferences", []):
+            parts.append(f"    · 用户偏好: {pref}")
+    return "\n".join(parts)
