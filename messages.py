@@ -366,10 +366,10 @@ class ConversationManager:
 
         # 少量会话 全量返回，不需要 LLM
         if len(entries) <= 3:
-            return self._entries_to_memory_text(entries)
+            return _entries_to_memory_text(entries)
 
         # 大量会话 用 LLM 匹配
-        index_text = self._index_to_llm_text(entries)
+        index_text = _index_to_llm_text(entries)
 
         try:
             model = self.config.recall_model or self.config.model_name
@@ -402,7 +402,7 @@ class ConversationManager:
         if self.config.show_system_messages:
             print(f"[召回] 从 {len(entries)} 次历史会话中匹配到 {len(relevant)} 个相关")
 
-        return self._entries_to_memory_text(relevant)
+        return _entries_to_memory_text(relevant)
 
    
 
